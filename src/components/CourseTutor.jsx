@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import FormattedChatText from './FormattedChatText';
 import ImStuckModal from './ImStuckModal';
+import { authenticatedFetch } from '../lib/auth';
 
 export default function CourseTutor({
   course,
@@ -136,11 +137,10 @@ export default function CourseTutor({
         text: m.text
       }));
 
-      const res = await fetch('/api/tutor', {
+      const res = await authenticatedFetch('/api/tutor', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'x-appwrite-jwt': localStorage.getItem('courseit_jwt') || ''
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           courseId: course.$id,
@@ -225,11 +225,10 @@ export default function CourseTutor({
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className={`flex items-center gap-2.5 px-5 py-3 rounded-full text-white shadow-xl transition-all transform hover:scale-105 active:scale-95 cursor-pointer border group ${
-            isLandingMode
+          className={`flex items-center gap-2.5 px-5 py-3 rounded-full text-white shadow-xl transition-all transform hover:scale-105 active:scale-95 cursor-pointer border group ${isLandingMode
               ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 border-emerald-400/30 shadow-emerald-900/30'
               : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 border-indigo-400/30 shadow-indigo-600/30'
-          }`}
+            }`}
           title={isLandingMode ? 'Ask CourseIT Demo Bot' : 'Open Contextual Course Tutor'}
         >
           <div className="relative">
@@ -248,11 +247,10 @@ export default function CourseTutor({
           {/* Header */}
           <div className="p-3.5 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className={`w-8 h-8 rounded-xl flex items-center justify-center border ${
-                isLandingMode
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center border ${isLandingMode
                   ? 'bg-emerald-600/20 border-emerald-500/40 text-emerald-300'
                   : 'bg-indigo-600/30 border-indigo-500/40 text-indigo-300'
-              }`}>
+                }`}>
                 <Bot className="w-4 h-4" />
               </div>
               <div>
@@ -260,11 +258,10 @@ export default function CourseTutor({
                   <span className="text-xs font-bold text-white tracking-tight">
                     {isLandingMode ? 'CourseIT Guide' : 'Interactive Course Tutor'}
                   </span>
-                  <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full border ${
-                    isLandingMode
+                  <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full border ${isLandingMode
                       ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                       : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
-                  }`}>
+                    }`}>
                     {isLandingMode ? 'Public Demo' : `Step ${selectedStep + 1} Context`}
                   </span>
                 </div>
@@ -297,11 +294,10 @@ export default function CourseTutor({
                       key={idx}
                       type="button"
                       onClick={() => setSelectedStep(idx)}
-                      className={`px-2 py-0.5 rounded-md font-mono text-[10px] shrink-0 transition-all cursor-pointer ${
-                        selectedStep === idx
+                      className={`px-2 py-0.5 rounded-md font-mono text-[10px] shrink-0 transition-all cursor-pointer ${selectedStep === idx
                           ? 'bg-indigo-600 text-white font-bold'
                           : 'bg-slate-800 text-slate-400 hover:text-slate-200'
-                      }`}
+                        }`}
                     >
                       {idx + 1}
                     </button>
@@ -318,13 +314,12 @@ export default function CourseTutor({
                       disabled={isGuest && m !== 'quick'}
                       onClick={() => setResponseMode(m)}
                       title={isGuest && m !== 'quick' ? 'Sign in for Normal and Deep modes' : `${m} mode`}
-                      className={`px-1.5 py-0.5 rounded transition-all capitalize cursor-pointer ${
-                        responseMode === m
+                      className={`px-1.5 py-0.5 rounded transition-all capitalize cursor-pointer ${responseMode === m
                           ? 'bg-indigo-600 text-white font-bold'
                           : isGuest && m !== 'quick'
-                          ? 'text-slate-600 cursor-not-allowed'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
+                            ? 'text-slate-600 cursor-not-allowed'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
                     >
                       {m}
                     </button>
@@ -394,11 +389,10 @@ export default function CourseTutor({
                   className={`flex flex-col ${m.sender === 'user' ? 'items-end' : 'items-start'}`}
                 >
                   <div
-                    className={`max-w-[90%] p-3 rounded-2xl text-xs sm:text-[13px] leading-relaxed ${
-                      m.sender === 'user'
+                    className={`max-w-[90%] p-3 rounded-2xl text-xs sm:text-[13px] leading-relaxed ${m.sender === 'user'
                         ? 'bg-indigo-600 text-white rounded-br-none shadow-md shadow-indigo-600/20'
                         : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-bl-none shadow-sm'
-                    }`}
+                      }`}
                   >
                     <FormattedChatText text={m.text} />
 

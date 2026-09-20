@@ -97,12 +97,41 @@ export default function Dashboard() {
       polling = true;
       try {
         const response = await authenticatedFetch(`/api/generation/jobs/${lastInputPayload.requestId}`);
-        if (response.ok) {
-          const data = await response.json();
-          if (!stopped) setGenerationJob(data);
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          if (!stopped) {
+            const error = Object.assign(new Error(data.error || 'This generation request no longer exists or was not created successfully.'), {
+              code: data.code || 'GENERATION_UNKNOWN',
+              retryable: false
+            });
+            setGenerationFailure(error);
+            setIsGenerating(false);
+            setGenerationJob((prev) => ({
+              ...(prev || { startedAt: Date.now(), events: [] }),
+              state: 'failed',
+              updatedAt: Date.now(),
+              code: error.code,
+              error: error.message,
+              events: [...(prev?.events || []), { stage: error.message, at: new Date().toISOString() }]
+            }));
+          }
+          return;
         }
-      } catch { /* The generation request remains authoritative; transient polling errors are not fatal. */ }
-      finally { polling = false; }
+
+        const data = await response.json();
+        if (!stopped) {
+          setGenerationJob(data);
+          if (data.state === 'failed' || data.state === 'uncertain') {
+            setGenerationFailure(Object.assign(new Error(data.error || 'Generation stopped unexpectedly.'), {
+              code: data.code || 'GENERATION_UNKNOWN',
+              retryable: Boolean(data.retryAfterSeconds)
+            }));
+            setIsGenerating(false);
+          }
+        }
+      } catch {
+        /* The generation request remains authoritative; transient polling errors are not fatal. */
+      } finally { polling = false; }
     };
     const timer = setInterval(poll, 1500);
     poll();
@@ -136,7 +165,6 @@ export default function Dashboard() {
     setGenerationJob({ startedAt: Date.now(), state: 'running', events: [] });
     setProgressOpen(true);
     setSuccessFallback(null);
-    setLastInputPayload(inputPayload);
 
     try {
       const userId = user?.id || null;
@@ -188,6 +216,12 @@ export default function Dashboard() {
       }
 
       let data = await readApiResponse(response);
+
+      // Only set lastInputPayload if we're actually going to poll or have succeeded
+      if (response.status === 202 || (response.ok && data.success)) {
+        setLastInputPayload(inputPayload);
+      }
+
       if (response.status === 202) data = await waitForExistingJob(inputPayload.requestId);
 
       if (!response.ok || !data.success) {
@@ -338,7 +372,7 @@ export default function Dashboard() {
                   <div className="space-y-1">
                     <p className="font-bold text-white text-base">Account Pending Admin Approval</p>
                     <p className="text-xs text-amber-200/90 leading-relaxed">
-                      Your account ({authState.user?.email}) is currently in the queue for approval. You will receive an email once approved with <strong>250 free credits</strong>! In the meantime, you can explore the curated starter tutorials below.
+                      Your account ({authState.user?.email}) is currently in the queue for approval. You will receive an email once approved with <strong>250 beta credits</strong>! In the meantime, you can explore the curated starter tutorials below.
                     </p>
                   </div>
                 </div>
@@ -591,7 +625,7 @@ export default function Dashboard() {
                 <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-4">
                   <h3 className="text-sm font-bold text-white">Need Additional Quota?</h3>
                   <p className="text-xs text-slate-400 leading-relaxed">
-                    Verified beta testers receive 250 free credits upon account approval. If you run out of credits while testing large documentation archives, administrators can issue instant credit top-ups.
+                    Verified beta testers receive 250 beta credits upon account approval. If you run out of credits while testing large documentation archives, administrators can issue instant credit top-ups.
                   </p>
                   <button
                     type="button"

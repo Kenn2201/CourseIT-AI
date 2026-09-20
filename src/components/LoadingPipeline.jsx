@@ -17,11 +17,13 @@ export default function LoadingPipeline({ isOpen, job, error, retryAt, input, on
   if (!isOpen) return null;
 
   const remaining = retryAt ? Math.max(0, Math.ceil((retryAt - now) / 1000)) : 0;
-  const elapsed = Math.max(0, Math.floor((now - (job?.startedAt || now)) / 1000));
+  const terminalState = job?.state === 'failed' || job?.state === 'uncertain' || job?.state === 'cancelled';
+  const elapsedStopAt = error && (job?.updatedAt || job?.startedAt) ? (job.updatedAt || job.startedAt) : now;
+  const elapsed = Math.max(0, Math.floor((elapsedStopAt - (job?.startedAt || elapsedStopAt)) / 1000));
   const title = input?.type === 'document' ? input.title : input?.topic || 'Documentation learning module';
   let host = input?.type === 'document' ? input.title || 'Uploaded document' : '';
   try { if (input?.url) host = new URL(input.url).hostname; } catch { host = 'Documentation URL'; }
-  const running = !error && job?.state !== 'succeeded';
+  const running = !error && !terminalState && job?.state !== 'succeeded';
   const rateLimited = error?.code === 'RATE_LIMITED';
 
   return createPortal(
@@ -34,7 +36,7 @@ export default function LoadingPipeline({ isOpen, job, error, retryAt, input, on
         <div className="pr-8">
           <div className="mb-3 flex items-center gap-2 text-indigo-300">
             {running ? <LoaderCircle className="h-5 w-5 animate-spin" /> : error ? <AlertCircle className="h-5 w-5 text-amber-300" /> : <CheckCircle2 className="h-5 w-5 text-emerald-300" />}
-            <h2 className="text-lg font-bold text-white">{rateLimited ? 'AI Service Temporarily Busy' : error ? 'Generation Paused' : job?.state === 'succeeded' ? 'Learning Module Generated' : 'Generating Learning Module'}</h2>
+            <h2 className="text-lg font-bold text-white">{rateLimited ? 'AI Service Temporarily Busy' : error ? (error.code === 'GENERATION_UNKNOWN' ? 'Generation Status Unavailable' : 'Generation Failed') : job?.state === 'succeeded' ? 'Learning Module Generated' : 'Generating Learning Module'}</h2>
           </div>
           <p className="text-sm font-semibold text-slate-100">{title}</p>
           <p className="mt-1 break-all text-xs text-slate-400">{host}</p>

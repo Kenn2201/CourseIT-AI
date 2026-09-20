@@ -1,10 +1,11 @@
 import { Client, Databases, Storage } from 'appwrite';
 
 // Leaf module: do not import authentication or course services here.
-const ENDPOINT = import.meta.env.VITE_APPWRITE_ENDPOINT || 'https://syd.cloud.appwrite.io/v1';
-const PROJECT_ID = import.meta.env.VITE_APPWRITE_PROJECT_ID || '';
-const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID || '';
-const COLLECTION_ID = import.meta.env.VITE_APPWRITE_COLLECTION_ID || '';
+const runtimeEnv = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : (typeof process !== 'undefined' ? process.env : {});
+const ENDPOINT = runtimeEnv.VITE_APPWRITE_ENDPOINT || runtimeEnv.APPWRITE_ENDPOINT || 'https://syd.cloud.appwrite.io/v1';
+const PROJECT_ID = runtimeEnv.VITE_APPWRITE_PROJECT_ID || runtimeEnv.APPWRITE_PROJECT_ID || '';
+const DATABASE_ID = runtimeEnv.VITE_APPWRITE_DATABASE_ID || runtimeEnv.APPWRITE_DATABASE_ID || '';
+const COLLECTION_ID = runtimeEnv.VITE_APPWRITE_COLLECTION_ID || runtimeEnv.APPWRITE_COLLECTION_ID || '';
 
 // Initialize Appwrite Client if project ID exists
 export let client = null;

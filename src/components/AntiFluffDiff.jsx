@@ -36,10 +36,10 @@ export default function AntiFluffDiff() {
             <span>Built for ADHD & Low Attention Spans</span>
           </div>
           <h3 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Zero AI Fluff. Pure Action Steps.
+            Action-First Content. Minimal Tangents.
           </h3>
           <p className="text-xs sm:text-sm text-slate-400 mt-1.5 max-w-xl leading-relaxed">
-            Standard AI models drown your focus in conversational filler. CourseIT is designed to strip conversational filler and surface the next useful action first. Commands, code examples, and exact edits are included when relevant.
+            Standard AI outputs bury actionable insights under conversational filler. CourseIT is designed to reduce conversational filler and surface the next useful action first. Commands, code examples, and exact edits are included when relevant.
           </p>
         </div>
 

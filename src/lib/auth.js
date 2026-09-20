@@ -1,8 +1,9 @@
 import { Account, ID, OAuthProvider } from 'appwrite';
-import { client, isAppwriteConfigured } from './appwriteClient';
+import { client, isAppwriteConfigured } from './appwriteClient.js';
 
+const runtimeEnv = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : (typeof process !== 'undefined' ? process.env : {});
 const AUTH_STORAGE_KEY = 'courseit_auth_session';
-export const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || '';
+export const ADMIN_EMAIL = runtimeEnv.VITE_ADMIN_EMAIL || runtimeEnv.ADMIN_EMAIL || '';
 
 export let account = null;
 
@@ -379,18 +380,40 @@ export async function getAuthJwt() {
  */
 export async function authenticatedFetch(url, options = {}) {
   const authState = getAuthState();
-  const headers = {
-    ...(options.headers || {})
+  const headers = { ...(options.headers || {}) };
+
+  const normalizeAuthHeaderValue = (value) => {
+    if (value === undefined || value === null) return null;
+    const text = String(value).trim();
+    if (!text || ['null', 'undefined', 'Bearer', 'Bearer null', 'Bearer undefined'].includes(text)) {
+      return null;
+    }
+    return text;
   };
 
-  // Strictly skip JWT creation for guests and unauthenticated visitors
+  const rawJwt = normalizeAuthHeaderValue(headers['x-appwrite-jwt'] || headers['X-Appwrite-JWT']);
+  if (!rawJwt || rawJwt === 'null' || rawJwt === 'undefined') {
+    delete headers['x-appwrite-jwt'];
+    delete headers['X-Appwrite-JWT'];
+  }
+
+  const rawAuth = normalizeAuthHeaderValue(headers.authorization || headers.Authorization);
+  if (!rawAuth || rawAuth === 'null' || rawAuth === 'undefined') {
+    delete headers.authorization;
+    delete headers.Authorization;
+  }
+
+  // Strictly skip JWT creation for guests and unauthenticated visitors.
   if (authState.isAuthenticated && authState.user?.id) {
     const jwt = await getAuthJwt();
     if (!jwt) throw new Error('Your session expired. Sign in again.');
-    if (jwt) {
-      headers['x-appwrite-jwt'] = jwt;
-      headers['authorization'] = `Bearer ${jwt}`;
-    }
+    headers['x-appwrite-jwt'] = jwt;
+    headers.authorization = `Bearer ${jwt}`;
+  } else {
+    delete headers['x-appwrite-jwt'];
+    delete headers['X-Appwrite-JWT'];
+    delete headers.authorization;
+    delete headers.Authorization;
   }
 
   return fetch(url, {

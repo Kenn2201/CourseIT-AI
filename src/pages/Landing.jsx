@@ -101,7 +101,7 @@ const WORKFLOW_STEPS = [
   {
     step: '04',
     title: 'Practice and Track Progress',
-    desc: 'Follow direct instructions, copy verified commands, track interactive checklists, and consult the Scripted Technical Companion for instant clarifications.',
+    desc: 'Follow direct instructions, copy verified commands, track interactive checklists, and consult the Interactive Course Tutor for instant clarifications.',
     accent: 'text-emerald-400',
     badgeBg: 'bg-emerald-600/20 border-emerald-500/30'
   }
@@ -305,7 +305,7 @@ export default function Landing({ onLaunchApp }) {
           <div className="flex flex-wrap items-center justify-center gap-6 pt-3 text-xs text-slate-400 font-mono">
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              250 Free Credits on Approval
+              250 Beta Credits on Approval
             </span>
             <span className="flex items-center gap-1.5">
               <Scan className="w-4 h-4 text-indigo-400" />
@@ -540,10 +540,10 @@ export default function Landing({ onLaunchApp }) {
             <span>Transparent Credit Economy</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-            250 Free Credits on Admin Approval
+            250 Beta Credits on Admin Approval
           </h2>
           <p className="text-xs text-slate-400 mt-2">
-            Pick the exact reasoning tier you need for each task. Unauthenticated guests can generate 3 free courses with the Fast Tier. Approved beta testers unlock all tiers with 250 free credits.
+            Pick the exact reasoning tier you need for each task. Unauthenticated guests can generate 3 free courses with the Fast Tier. Approved beta testers unlock all tiers with 250 beta credits. CourseIT credits are internal usage units and do not equal cash, USD, or provider API dollars.
           </p>
         </div>
 
@@ -587,7 +587,7 @@ export default function Landing({ onLaunchApp }) {
             Ready to experience action-first documentation?
           </h2>
           <p className="text-xs sm:text-sm text-slate-400 max-w-lg mx-auto">
-            Create an account today to request 250 free credits upon admin approval, save your generated curricula, and access client-side document OCR.
+            Create an account today to request 250 beta credits upon admin approval, save your generated curricula, and access client-side document OCR. Complimentary CourseIT usage credits for approved beta accounts.
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">

@@ -10,10 +10,10 @@ All UI components, user-facing screens, and backend constants must import the ac
 📁 **[`src/constants/version.js`](src/constants/version.js)**
 
 ```javascript
-export const CURRENT_VERSION = '1.19.1';
-export const CURRENT_VERSION_LABEL = 'v1.19.1 LIVE Beta';
-export const RELEASE_DATE = 'September 19, 2026';
-export const RELEASE_NAME = 'Tutor Reliability & Starter Course Fixes';
+export const CURRENT_VERSION = '1.19.2';
+export const CURRENT_VERSION_LABEL = 'v1.19.2 LIVE Beta';
+export const RELEASE_DATE = 'September 20, 2026';
+export const RELEASE_NAME = 'Production Bug Fixes & Profile UI Transparency';
 
 export const APP_NAME = 'CourseIT Ai';
 export const APP_TAGLINE = 'Action-first docs learning paths';
@@ -38,7 +38,7 @@ Version numbers and release records are synchronized across:
 1. **[`README.md`](README.md)**: Displays active version shield, last commit hash, policy link, and high-level summary of latest releases.
 2. **[`CHANGELOG.md`](CHANGELOG.md)**: Full chronological audit trail of all historical releases following [Keep a Changelog](https://keepachangelog.com/).
 3. **[`src/data/changelog.js`](src/data/changelog.js)**: In-app interactive changelog modal data with feature highlights and release badges.
-4. **[`package.json`](package.json)**: Application package version metadata (`"version": "1.18.0"`).
+4. **[`package.json`](package.json)**: Application package version metadata (`"version": "1.19.2"`).
 
 ---
 

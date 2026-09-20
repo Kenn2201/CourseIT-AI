@@ -647,7 +647,7 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
             </div>
             <h3 className="text-xl font-bold text-white mb-2">Beta Access Required</h3>
             <p className="text-sm text-slate-300 leading-relaxed mb-6">
-              Free trial limit reached (3/3). You can use another free trial in 24 hours, or request access to the beta test for 250 free credits!
+              Free trial limit reached (3/3). You can use another free trial in 24 hours, or request access to the beta test for 250 beta credits!
             </p>
             <div className="flex flex-col gap-3">
               <button
@@ -659,7 +659,7 @@ export default function UrlInputForm({ onSubmit, isLoading, quota, isAdmin, isAu
                 className="btn-primary py-3 px-6 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 cursor-pointer"
               >
                 <Sparkles className="w-4 h-4" />
-                <span>Request Access for Beta Test (250 Free Credits)</span>
+                <span>Request Access for Beta Test (250 Beta Credits)</span>
               </button>
               <button
                 type="button"

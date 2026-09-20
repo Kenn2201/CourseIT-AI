@@ -1,9 +1,28 @@
 export const CHANGELOG_DATA = [
   {
+    version: 'v1.19.2 LIVE Beta',
+    date: 'September 20, 2026',
+    title: 'Production Bug Fixes & Profile UI Transparency',
+    badge: 'Latest Release',
+    highlights: [
+      { title: 'Generation Polling 404 Fix', desc: 'Fixed infinite polling loop on non-existent job endpoints; now stops immediately and displays clear error state.' },
+      { title: 'Provider Rate Limit Clarity', desc: 'Eliminated false "Generation Paused" messages on 429/402 errors; now shows terminal "Generation Failed" with frozen elapsed timer.' },
+      { title: 'Profile Credits Transparency', desc: 'Renamed "Remaining Course Credits" to "CourseIT Credits" with disclaimer that credits are internal usage units, not USD.' }
+    ],
+    notes: [
+      'Fixed source-read failures: improved terminal state detection to freeze elapsed timer and display extraction errors immediately.',
+      'Added Data & Account Management section with Clear Learning Data, Archive Account, and Delete Account options.',
+      'Added Tutor mode pricing display to profile (Quick: 0.1 cr, Normal: 0.25 cr, Deep: 0.5 cr).',
+      'Verified explicit requestType parameter on telemetry for accurate generation vs Tutor discrimination in analytics.',
+      'Added 400/413/422 error fallback messages to guide users toward actionable fixes.',
+      'All 70 regression tests passing: auth, generation pipeline, tutor quotas, billing, and telemetry verified.'
+    ]
+  },
+  {
     version: 'v1.19.1 LIVE Beta',
     date: 'September 19, 2026',
     title: 'Tutor Reliability & Starter Course Fixes',
-    badge: 'Latest Release',
+    badge: 'Previous Release',
     highlights: [
       { title: 'Starter Course Tutor Support', desc: 'Curated starter courses now resolve seamlessly in CourseTutor without 404 errors or fake source references.' },
       { title: 'Failure-Safe Credit Charging', desc: 'Tutor credits are deducted only after AI completion succeeds; failed requests (429, 5xx, timeouts) charge zero.' },

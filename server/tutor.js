@@ -13,12 +13,10 @@ import { resolveCourse, readCourse } from './catalog.js';
 import { getCourseChunks, retrieveRelevantChunks } from './courseChunks.js';
 import { PROVIDERS } from './llm/manager.js';
 import { isTransientError, LLMError } from './llm/errors.js';
+import { TUTOR_CREDIT_COSTS, TUTOR_MODE_CONFIG, getTutorCost } from '../shared/pricing.js';
+import { recordTokenUsage } from './handler.js';
 
-export const TUTOR_CREDIT_COSTS = {
-  quick: 0.1,
-  normal: 0.25,
-  deep: 0.5
-};
+export { TUTOR_CREDIT_COSTS, TUTOR_MODE_CONFIG, getTutorCost };
 
 export const MAX_OUTPUT_TOKENS_BY_MODE = {
   quick: 350,
@@ -345,6 +343,21 @@ ${targetStep.code_snippet ? `Code Example:\n\`\`\`\n${targetStep.code_snippet}\n
     mode: effectiveMode,
     courseId
   });
+
+  try {
+    await recordTokenUsage({
+      userId: session?.userId || 'public_guest',
+      model: completion.model || 'gemini-flash-lite-latest',
+      usage: completion.usage,
+      courseTitle: course.title,
+      cost: quotaResult.cost,
+      balance: quotaResult.remaining,
+      courseId,
+      requestType: 'tutor_query'
+    });
+  } catch (usageErr) {
+    console.warn('[CourseIT Tutor] Usage recording notice:', usageErr.message);
+  }
 
   // Build suggested actions (Show Source only if real retrieved chunks exist)
   const suggestedActions = [];

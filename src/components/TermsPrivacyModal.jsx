@@ -74,7 +74,7 @@ export default function TermsPrivacyModal({ isOpen, onClose, initialTab = 'terms
                   1. Beta Testing & Fair Use
                 </h4>
                 <p className="text-slate-400">
-                  CourseIT is currently in active Beta ({CURRENT_VERSION_LABEL}). By using the service, you agree to fair use of API reasoning resources. Each verified tester receives 250 free credits upon admin approval for educational, personal, and professional learning synthesis.
+                  CourseIT is currently in active Beta ({CURRENT_VERSION_LABEL}). By using the service, you agree to fair use of API reasoning resources. Each verified tester receives 250 beta credits upon admin approval for educational, personal, and professional learning synthesis. CourseIT credits are internal usage units and do not equal cash, USD, or provider API dollars.
                 </p>
               </section>
 

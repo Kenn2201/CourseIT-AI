@@ -4,7 +4,7 @@
 > Paste docs or scans, tell CourseIT what you want to learn, and get an action-first learning module with concise explanations, numbered steps, examples, commands, and clear next actions.
 
 [![CourseIT Ai Banner](https://raw.githubusercontent.com/kennnacario/portfolio-kenn/master/project-3-CourseIT/public/favicon.ico)](https://courseitai.kenncode.me)
-![Version](https://img.shields.io/badge/version-v1.19.1--LIVE--Beta-indigo.svg)
+![Version](https://img.shields.io/badge/version-v1.19.2--LIVE--Beta-indigo.svg)
 [![Last Commit](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.github.com%2Frepos%2FKenn2201%2FCourseIT-AI%2Fcommits%2Fmaster&query=%24.sha&label=commit&color=purple&cacheSeconds=60)](https://github.com/Kenn2201/CourseIT-AI/commit/master)
 [![Versioning Policy](https://img.shields.io/badge/policy-VERSIONING.md-blue.svg)](VERSIONING.md)
 [![Changelog](https://img.shields.io/badge/changelog-CHANGELOG.md-emerald.svg)](CHANGELOG.md)
@@ -22,18 +22,18 @@
 ## 📜 Version & Changelog
 
 CourseIT Ai maintains a strict single source of truth for all releases:
-* **Current Production Version**: `v1.19.1 LIVE Beta` ([`src/constants/version.js`](src/constants/version.js))
+* **Current Production Version**: `v1.19.2 LIVE Beta` ([`src/constants/version.js`](src/constants/version.js))
 * **Release Checklist & Policy**: [**VERSIONING.md**](VERSIONING.md)
 * **Full Changelog**: [**CHANGELOG.md**](CHANGELOG.md)
 * **License**: [**MIT License**](LICENSE)
 * **Latest Production Commit**: [`master HEAD`](https://github.com/Kenn2201/CourseIT-AI/commit/master)
 
-### Latest Release: v1.19.1 LIVE Beta (September 19, 2026) — *Tutor Reliability & Starter Course Fixes*
+### Latest Release: v1.19.2 LIVE Beta (September 20, 2026) — *Production Bug Fixes & Profile UI Transparency*
 
-* **Starter Course Tutor Resolution**: Full CourseTutor support for curated starter courses (`starter-react-server-components`, `starter-godot-signals`, etc.) using structured step actions and pro-tips without 404s or fabricated source references.
-* **Failure-Safe Credit Charging**: Pre-flight credit checks verify user balance upfront, but deductions only occur upon successful AI completion. 429s, 5xx server errors, and upstream timeouts charge zero credits.
-* **Strict `stepIndex` Validation**: Rejects invalid, negative, fractional, or out-of-range step indexes with HTTP 400 Bad Request instead of silently falling back to Step 1.
-* **Shared Course Normalization**: Unified `resolveCourse()` across both persistent stores and curated templates with strict ACL protection for private courses.
+* **Generation Polling 404 Fix**: Fixed infinite polling loop on non-existent job endpoints; now stops immediately and displays a clear error state.
+* **Provider Rate Limit Clarity**: Eliminated false "Generation Paused" messages on 429/402 errors; now shows terminal "Generation Failed" with frozen elapsed timer.
+* **Profile Credits Transparency**: Renamed "Remaining Course Credits" to "CourseIT Credits" with disclaimer that credits are internal usage units, not USD.
+* **Data & Account Management**: Added Clear Learning Data, Archive Account, and Delete Account options to user profile.
 
 > 📖 **Full Historical Changelog**: To keep this README focused and concise, all historical release notes from v1.19.0 down to v1.0.0 are maintained separately in [**CHANGELOG.md**](CHANGELOG.md).
 

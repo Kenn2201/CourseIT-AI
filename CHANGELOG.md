@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.2] - 2026-09-20 — Production Bug Fixes & Profile UI Transparency (LIVE Beta)
+
+### Fixed
+- **Generation Polling 404 Loop**: Fixed client-side infinite polling against non-existent or deleted job endpoints. Client now stops polling immediately and displays a clear error state instead of cycling indefinitely through 404 responses.
+- **Provider Rate Limit False "Paused" State**: Eliminated misleading "Generation Paused" messages on provider billing exhaustion (402/429 errors). Terminal failure states now show "Generation Failed" with elapsed timer frozen at error timestamp instead of continuing to count upward.
+- **Invalid Summarize Payload Handling**: Added explicit fallback error messages for 400/413/422 validation/payload errors. Early request validation now prevents polling loops from starting on initial generation request failures.
+- **Source-Read Failure Progress**: Improved terminal state detection in generation pipeline. Elapsed timer now freezes immediately when source documentation extraction fails instead of displaying false progress.
+
+### Changed
+- **Profile Credits Terminology**: Renamed "Remaining Course Credits" to "CourseIT Credits" with expanded clarification: "Used for AI course generation and contextual Tutor requests. CourseIT credits are internal usage units and do not equal cash, USD, or provider API dollars."
+- **Profile Pricing Display**: Added Tutor mode costs to pricing card breakdown (Quick: 0.1 cr, Normal: 0.25 cr, Deep: 0.5 cr) alongside generation model tier costs.
+- **Profile Data Management**: Added new "Data & Account Management" section with Clear Learning Data, Archive Account, and Delete Account Permanently options (UI ready with handler implementation ready for next phase).
+
+### Improved
+- **Telemetry Discrimination**: All generation path recordTokenUsage calls now include explicit `requestType: 'course_generation'` parameter. Verified Tutor path includes `requestType: 'tutor_query'`. Admin analytics can now accurately separate Tutor usage from course generation events.
+- **Error Guidance**: Consistent fallback messages guide users toward actionable fixes when generation input fails validation (e.g., "Check your source URL or text and try again" for 422).
+
+### Verified
+- All 70 regression tests passing (auth, generation pipeline, tutor quotas, billing, telemetry)
+- No stale bearer tokens sent on public/guest requests; optional auth flows preserve guest Tutor access
+- Billing metadata accurately recorded with requested/actual provider/model/tier details and chargedCredits vs maximumCreditCost
+
 ## [1.19.1] - 2026-09-19 — Tutor Reliability & Starter Course Fixes (LIVE Beta)
 
 ### Fixed

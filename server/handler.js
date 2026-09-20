@@ -11,6 +11,15 @@ import { listDocumentsAll, readCourse, courseDatabase, addPublicCourseToFeed, re
 import { normalizeCourse } from '../shared/courses.js';
 import { deleteSourceFile } from './sourceStore.js';
 import { chunkDocumentText, saveCourseChunks } from './courseChunks.js';
+import {
+  MODEL_CREDIT_COSTS,
+  getModelCost,
+  MODEL_TIER_CONFIG,
+  getTierForModel,
+  resolveProviderName
+} from '../shared/pricing.js';
+
+export { MODEL_CREDIT_COSTS, getModelCost, MODEL_TIER_CONFIG, getTierForModel, resolveProviderName };
 
 // In serverless / AWS Lambda / Netlify environments, the root file system is read-only.
 // Use os.tmpdir() for runtime fallback files.
@@ -49,6 +58,18 @@ try {
 // 250 credits default trial quota
 export const DEFAULT_CREDITS = 250;
 
+export function getAppwriteUsersClient() {
+  const e = process.env;
+  const project = e.APPWRITE_PROJECT_ID || e.VITE_APPWRITE_PROJECT_ID;
+  const usersKey = e.APPWRITE_USERS_API_KEY || e.APPWRITE_API_KEY;
+  if (!usersKey || !project) return null;
+  const client = new Client()
+    .setEndpoint(e.APPWRITE_ENDPOINT || e.VITE_APPWRITE_ENDPOINT || 'https://syd.cloud.appwrite.io/v1')
+    .setProject(project)
+    .setKey(usersKey);
+  return new Users(client);
+}
+
 export async function getAuthIdentityOverview() {
   const e = process.env;
   const project = e.APPWRITE_PROJECT_ID || e.VITE_APPWRITE_PROJECT_ID;
@@ -58,9 +79,10 @@ export async function getAuthIdentityOverview() {
       reason: !project ? 'Appwrite project ID is missing on the server.' : 'Server-only Appwrite Users API key is missing.' };
   }
   try {
-    const client = new Client().setEndpoint(e.APPWRITE_ENDPOINT || e.VITE_APPWRITE_ENDPOINT || 'https://syd.cloud.appwrite.io/v1')
-      .setProject(project).setKey(usersKey);
-    const usersApi = new Users(client);
+    const usersApi = getAppwriteUsersClient();
+    if (!usersApi) {
+      return { available: false, total: null, users: [], reason: 'Users API client could not be created.' };
+    }
     const page = await usersApi.list([Query.limit(100)]);
     let providersByUser = new Map();
     let providerAvailable = false;
@@ -131,12 +153,24 @@ export async function verifyAppwriteSession(jwt) {
   }
 }
 
-export async function recordTokenUsage({ userId, model, usage, courseTitle, cost = 0, balance = null, courseId }) {
+export async function recordTokenUsage({ userId, model, usage, courseTitle, cost = 0, balance = null, courseId, requestType = 'course_generation' }) {
   const entry = {
-    id: randomUUID(), timestamp: new Date().toISOString(), type: 'generation',
-    userId: userId || 'public_guest', model, courseTitle, courseId,
-    promptTokens: usage?.promptTokens || 0, candidateTokens: usage?.candidateTokens || 0,
-    totalTokens: usage?.totalTokens || 0, credits: -cost, balance
+    id: randomUUID(),
+    timestamp: new Date().toISOString(),
+    type: requestType === 'tutor_query' ? 'tutor' : 'generation',
+    requestType,
+    userId: userId || 'public_guest',
+    model,
+    provider: resolveProviderName(model),
+    courseTitle,
+    courseId,
+    promptTokens: usage?.promptTokens || 0,
+    candidateTokens: usage?.candidateTokens || 0,
+    outputTokens: usage?.candidateTokens || usage?.outputTokens || 0,
+    totalTokens: usage?.totalTokens || 0,
+    credits: -cost,
+    creditsDebited: cost,
+    balance
   };
   await writeState('usage/' + entry.id, entry);
   return entry;
@@ -159,23 +193,52 @@ export async function getTokenMetrics(userId = null) {
   const usageEntries = usage.filter(entry => !userId || entry.userId === userId);
   const usageByCourse = new Map(usageEntries.filter(entry => entry.courseId).map(entry => [entry.courseId, entry]));
   const chargedCourses = new Set();
-  const chargedEntries = creditHistory.filter(entry => entry.type === 'generation').map(entry => {
-    if (entry.courseId) chargedCourses.add(entry.courseId);
-    const supplement = usageByCourse.get(entry.courseId);
-    return { ...supplement, ...entry,
+  const chargedEntries = creditHistory.map(entry => {
+    if (entry.courseId && entry.type === 'generation') chargedCourses.add(entry.courseId);
+    const supplement = entry.courseId ? usageByCourse.get(entry.courseId) : null;
+    const reqType = entry.requestType || (entry.type === 'tutor' ? 'tutor_query' : 'course_generation');
+    return {
+      ...supplement,
+      ...entry,
+      requestType: reqType,
+      provider: entry.provider || supplement?.provider || resolveProviderName(entry.model || supplement?.model),
       promptTokens: entry.promptTokens ?? supplement?.promptTokens ?? null,
       candidateTokens: entry.candidateTokens ?? supplement?.candidateTokens ?? null,
+      outputTokens: entry.candidateTokens ?? supplement?.candidateTokens ?? entry.outputTokens ?? null,
       totalTokens: entry.totalTokens ?? supplement?.totalTokens ?? null,
       credits: entry.credits ?? supplement?.credits ?? 0,
-      ledgerSource: 'credit-transaction' };
+      creditsDebited: Math.max(0, -(entry.credits ?? supplement?.credits ?? 0)),
+      ledgerSource: 'credit-transaction'
+    };
   });
   const unmatchedUsage = usageEntries.filter(entry => !entry.courseId || !chargedCourses.has(entry.courseId))
-    .map(entry => ({ ...entry, ledgerSource: 'usage-only' }));
+    .map(entry => {
+      const reqType = entry.requestType || (entry.type === 'tutor' ? 'tutor_query' : 'course_generation');
+      return {
+        ...entry,
+        requestType: reqType,
+        provider: entry.provider || resolveProviderName(entry.model),
+        outputTokens: entry.outputTokens ?? entry.candidateTokens ?? null,
+        creditsDebited: Math.max(0, -(entry.credits || 0)),
+        ledgerSource: 'usage-only'
+      };
+    });
   const entries = [...chargedEntries, ...unmatchedUsage]
     .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-  const stats = { totalTokens: 0, promptTokens: 0, candidateTokens: 0, totalGenerations: 0,
-    creditsUsed: 0, unknownTokenGenerations: 0, unknownBreakdownGenerations: 0,
-    perUser: {}, history: entries, creditHistory };
+  const stats = {
+    totalTokens: 0,
+    promptTokens: 0,
+    candidateTokens: 0,
+    totalGenerations: 0,
+    totalTutorRequests: 0,
+    creditsUsed: 0,
+    creditsDebited: 0,
+    unknownTokenGenerations: 0,
+    unknownBreakdownGenerations: 0,
+    perUser: {},
+    history: entries,
+    creditHistory
+  };
   for (const e of entries) {
     if (Number.isFinite(e.totalTokens)) stats.totalTokens += e.totalTokens;
     else stats.unknownTokenGenerations++;
@@ -183,31 +246,37 @@ export async function getTokenMetrics(userId = null) {
       stats.promptTokens += e.promptTokens;
       stats.candidateTokens += e.candidateTokens;
     } else stats.unknownBreakdownGenerations++;
-    if (e.type !== 'generation') continue;
-    stats.totalGenerations++;
-    stats.creditsUsed += Math.max(0, -(e.credits || 0));
-    const user = stats.perUser[e.userId] ||= {
-      totalTokens: 0, generations: 0, creditsUsed: 0,
-      displayName: identities.get(e.userId)?.displayName || (e.userId === 'public_guest' ? 'Guest trial' : e.userId),
-      email: identities.get(e.userId)?.email || null
+
+    const isTutor = e.requestType === 'tutor_query' || e.type === 'tutor';
+    const isGeneration = e.requestType === 'course_generation' || e.type === 'generation';
+
+    if (isGeneration) {
+      stats.totalGenerations++;
+    } else if (isTutor) {
+      stats.totalTutorRequests++;
+    }
+
+    const debited = Math.max(0, -(e.credits || 0));
+    stats.creditsUsed += debited;
+    stats.creditsDebited += debited;
+
+    const uid = e.userId || 'unknown';
+    const user = stats.perUser[uid] ||= {
+      totalTokens: 0,
+      generations: 0,
+      tutorRequests: 0,
+      creditsUsed: 0,
+      creditsDebited: 0,
+      displayName: identities.get(uid)?.displayName || (uid === 'public_guest' ? 'Guest trial' : uid),
+      email: identities.get(uid)?.email || null
     };
     user.totalTokens += Number(e.totalTokens) || 0;
-    user.generations++;
-    user.creditsUsed += Math.max(0, -(e.credits || 0));
+    if (isGeneration) user.generations++;
+    if (isTutor) user.tutorRequests++;
+    user.creditsUsed += debited;
+    user.creditsDebited += debited;
   }
   return stats;
-}
-
-// Model Credit Pricing Tiers
-export const MODEL_CREDIT_COSTS = {
-  'gemini-flash-lite-latest': 0.5,
-  'gemini-3.5-flash-lite': 1.0,
-  'gemini-3.6-flash': 2.0,
-  'gemini-3.7-flash': 5.0
-};
-
-export function getModelCost(modelId) {
-  return MODEL_CREDIT_COSTS[modelId] ?? 1.0;
 }
 
 function loadLocalUsersQuota() {
@@ -1097,11 +1166,250 @@ async function saveGeneration({ summarized, customModel, isAdmin, userId, userEm
   catch (error) { console.warn('Public feed index update failed:', error?.name || 'Error'); }
   try {
     await recordTokenUsage({ userId, model: actualModel, usage: summarized.usage, courseTitle: course.title,
-      courseId: course.$id, cost: quota.cost, balance: quota.remaining });
+      courseId: course.$id, cost: quota.cost, balance: quota.remaining, requestType: 'course_generation' });
   } catch (error) {
     console.error('Usage log write failed:', error.message);
     warning = 'Course saved. Token reporting is temporarily unavailable; your credit transaction is retained.';
   }
-  return { course, savedToCloud: true, savedToAppwrite: false, cached: false, quota,
+  const reqModel = customModel || 'gemini-flash-lite-latest';
+  const reqTier = getTierForModel(reqModel);
+  const actModel = summarized.actualModel || reqModel;
+  const actTier = Object.hasOwn(MODEL_TIER_CONFIG, actModel)
+    ? MODEL_TIER_CONFIG[actModel]
+    : MODEL_TIER_CONFIG['gemini-flash-lite-latest'];
+  const maxCost = isGuest ? 0 : getModelCost(reqModel);
+  const charged = isGuest ? 0 : quota.cost;
+
+  const billing = {
+    requestedTier: reqTier.tierName,
+    requestedProvider: 'Gemini',
+    requestedModel: reqModel,
+    maximumCreditCost: maxCost,
+
+    actualProvider: summarized.provider || resolveProviderName(actModel),
+    actualModel: actModel,
+    actualTier: actTier.tierName,
+    chargedCredits: charged,
+    isFallback: Boolean(summarized.isFallback)
+  };
+
+  course.billing = billing;
+
+  return { course, savedToCloud: true, savedToAppwrite: false, cached: false, quota, billing,
     fallbackNotice: [summarized.fallbackNotice, warning].filter(Boolean).join(' ') || null };
+}
+
+/**
+ * Clears all learning data owned by a user:
+ * - courses
+ * - chunks
+ * - source images
+ * - public feed index entries
+ * Preserves user profile, authentication, role, approval status, credits, and ledger history.
+ */
+export async function clearUserLearningData(userId, userEmail = null) {
+  if (!userId || typeof userId !== 'string') {
+    throw Object.assign(new Error('A valid userId is required.'), { status: 400 });
+  }
+
+  const allCourses = await listState('courses/');
+  const targetEmail = userEmail ? userEmail.toLowerCase() : null;
+  const ownedCourses = allCourses.filter(c =>
+    (c.creator_id && c.creator_id === userId) ||
+    (targetEmail && c.creator_email && c.creator_email.toLowerCase() === targetEmail)
+  );
+
+  let deletedCount = 0;
+  for (const course of ownedCourses) {
+    const courseId = course.$id;
+    await deleteState(`courses/${courseId}`).catch(() => {});
+    await deleteState(`chunks/${courseId}`).catch(() => {});
+    await deleteSourceFile(courseId).catch(() => {});
+    await deleteState(`source/${courseId}`).catch(() => {});
+    await removePublicCourseFromFeed(courseId).catch(() => {});
+    deletedCount++;
+  }
+
+  return {
+    success: true,
+    clearedCoursesCount: deletedCount,
+    userId
+  };
+}
+
+/**
+ * Permanently deletes user account, owned learning data, and anonymizes telemetry:
+ * 1. Clears owned courses, chunks, and source files.
+ * 2. Anonymizes user-linked telemetry in usage/ (retaining token metrics for operational tracking).
+ * 3. Anonymizes feedback submitted by this user.
+ * 4. Deletes CourseIT user profile state.
+ * 5. Deletes Appwrite Auth user identity if server Users API is configured.
+ */
+export async function permanentDeleteUserAccount(userId, userEmail = null) {
+  if (!userId || typeof userId !== 'string') {
+    throw Object.assign(new Error('A valid userId is required.'), { status: 400 });
+  }
+
+  const user = await readState('users/' + userId);
+  const targetEmail = userEmail || user?.email || null;
+
+  // 1. Clear owned learning data
+  await clearUserLearningData(userId, targetEmail).catch(() => {});
+
+  // 2. Anonymize user-linked telemetry in usage/
+  try {
+    const allUsage = await listState('usage/');
+    const userUsage = allUsage.filter(u => u.userId === userId);
+    for (const u of userUsage) {
+      const anonymized = {
+        ...u,
+        userId: 'deleted_user',
+        userEmail: null,
+        courseTitle: 'Deleted Course',
+        anonymizedAt: new Date().toISOString()
+      };
+      await writeState('usage/' + u.id, anonymized);
+    }
+  } catch (err) {
+    console.warn('[Permanent Delete] Usage anonymization notice:', err.message);
+  }
+
+  // 3. Anonymize feedback
+  try {
+    const allFeedbacks = await listState('feedback/');
+    const targetEmailLower = targetEmail ? targetEmail.toLowerCase() : null;
+    const userFeedbacks = allFeedbacks.filter(f =>
+      f.userId === userId ||
+      (targetEmailLower && f.email && f.email.toLowerCase() === targetEmailLower)
+    );
+    for (const f of userFeedbacks) {
+      const anonymized = {
+        ...f,
+        userId: 'deleted_user',
+        name: 'Deleted User',
+        email: 'deleted@courseit.internal',
+        anonymizedAt: new Date().toISOString()
+      };
+      await writeState('feedback/' + f.id, anonymized);
+    }
+  } catch (err) {
+    console.warn('[Permanent Delete] Feedback anonymization notice:', err.message);
+  }
+
+  // 4. Delete CourseIT user profile
+  await deleteState('users/' + userId);
+
+  // 5. Delete Appwrite Auth identity if Appwrite Users API is configured
+  let appwriteDeleted = false;
+  let appwriteNotice = null;
+  const usersApi = getAppwriteUsersClient();
+  if (usersApi) {
+    try {
+      await usersApi.delete(userId);
+      appwriteDeleted = true;
+    } catch (err) {
+      console.warn('[Permanent Delete] Appwrite Users delete notice:', err.message);
+      appwriteNotice = err.message;
+    }
+  }
+
+  return {
+    success: true,
+    deleted: true,
+    userId,
+    appwriteDeleted,
+    appwriteNotice
+  };
+}
+
+/**
+ * Sets exact credit balance for a user and records an admin audit ledger event.
+ */
+export async function setUserCreditBalance(userId, newBalance, reason = 'Admin balance adjustment') {
+  if (!userId || typeof userId !== 'string') {
+    throw Object.assign(new Error('Valid userId is required.'), { status: 400 });
+  }
+  const balance = Math.max(0, Math.round(Number(newBalance) * 100) / 100);
+  const updatedUser = await updateState('users/' + userId, current => {
+    if (!current) throw Object.assign(new Error('User not found.'), { status: 404 });
+    const diff = balance - (current.quota_remaining ?? 0);
+    const event = {
+      id: randomUUID(),
+      timestamp: new Date().toISOString(),
+      type: 'admin_adjustment',
+      credits: diff,
+      cost: diff < 0 ? -diff : 0,
+      balanceBefore: current.quota_remaining ?? 0,
+      balanceAfter: balance,
+      balance,
+      reason
+    };
+    return {
+      ...current,
+      quota_remaining: balance,
+      creditHistory: [...(current.creditHistory || []), event]
+    };
+  });
+  return { success: true, quota_remaining: updatedUser.quota_remaining };
+}
+
+/**
+ * Reconciles an unmatched Appwrite Auth identity by querying Appwrite server-side
+ * and creating a CourseIT user profile (pending approval by default).
+ */
+export async function createProfileFromAuthIdentity(identityId, desiredStatus = 'pending') {
+  if (!identityId || typeof identityId !== 'string') {
+    throw Object.assign(new Error('Valid identityId is required.'), { status: 400 });
+  }
+
+  const existing = await readState('users/' + identityId);
+  if (existing) {
+    return { success: true, user: existing, alreadyExisted: true };
+  }
+
+  const usersApi = getAppwriteUsersClient();
+  if (!usersApi) {
+    throw Object.assign(new Error('Appwrite Users API client is not configured on the server.'), { status: 503 });
+  }
+
+  let authUser = null;
+  try {
+    authUser = await usersApi.get(identityId);
+  } catch (err) {
+    if (err.code === 404) {
+      throw Object.assign(new Error('Auth identity not found in Appwrite.'), { status: 404 });
+    }
+    throw Object.assign(new Error(`Failed to query Appwrite Users: ${err.message}`), { status: 502 });
+  }
+
+  if (!authUser || !authUser.$id) {
+    throw Object.assign(new Error('Auth identity not found.'), { status: 404 });
+  }
+
+  const status = desiredStatus === 'approved' ? 'approved' : 'pending';
+  const credits = status === 'approved' ? 250 : 0;
+  const newProfile = {
+    user_id: authUser.$id,
+    email: authUser.email,
+    name: authUser.name || authUser.email?.split('@')[0] || 'User',
+    role: 'user',
+    status,
+    quota_remaining: credits,
+    tokens_used: 0,
+    creditHistory: [
+      {
+        id: randomUUID(),
+        timestamp: new Date().toISOString(),
+        type: 'initial_quota',
+        amount: credits,
+        balance: credits,
+        reason: status === 'approved' ? 'Admin reconciled & approved profile' : 'Reconciled profile (pending approval)'
+      }
+    ],
+    reconciled_at: new Date().toISOString(),
+    created_at: authUser.$createdAt || new Date().toISOString()
+  };
+
+  await writeState('users/' + authUser.$id, newProfile);
+  return { success: true, user: newProfile, alreadyExisted: false };
 }

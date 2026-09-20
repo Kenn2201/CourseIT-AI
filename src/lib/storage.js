@@ -205,3 +205,70 @@ export function resetCourseProgress(courseId) {
     console.error('Failed to reset progress:', err);
   }
 }
+
+/**
+ * Permanently clears all CourseIT learning data while preserving auth, preferences, and unrelated data.
+ *
+ * Deleted:
+ * - Generated/cached guest courses (courseit_saved_courses)
+ * - Course progress per course (courseit_progress_*)
+ * - Course understanding states (courseit_understanding_*)
+ * - Checkpoint answers (courseit_checkpoints_*)
+ * - Last active steps (courseit_last_step_*)
+ * - Guest Tutor quota counter (courseit_guest_quota)
+ *
+ * Preserved:
+ * - Authentication session (appwrite_auth)
+ * - Admin mode flag (courseit_admin_mode)
+ * - Privacy consent records (courseit_consent_*)
+ * - System maintenance flag (courseit_maintenance_mode)
+ * - Theme/UI preferences
+ * - Usage and credit audit records (server-side only)
+ */
+export function clearClientLearningData() {
+  const keysToDelete = [];
+
+  try {
+    // Identify all keys that match CourseIT learning data patterns
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+
+      // Match CourseIT learning data prefixes
+      if (
+        key.startsWith(PROGRESS_PREFIX) ||           // courseit_progress_*
+        key.startsWith(UNDERSTANDING_PREFIX) ||      // courseit_understanding_*
+        key.startsWith(CHECKPOINT_PREFIX) ||         // courseit_checkpoints_*
+        key.startsWith(LAST_STEP_PREFIX) ||          // courseit_last_step_*
+        key === 'courseit_saved_courses' ||          // cached guest/local courses
+        key === 'courseit_guest_quota'               // guest tutor quota
+      ) {
+        keysToDelete.push(key);
+      }
+    }
+
+    // Delete all identified keys
+    keysToDelete.forEach(key => {
+      try {
+        localStorage.removeItem(key);
+      } catch (err) {
+        console.warn(`Failed to delete storage key "${key}":`, err.message);
+      }
+    });
+
+    console.log(`[CourseIT] Cleared ${keysToDelete.length} learning data keys from localStorage`);
+    return {
+      success: true,
+      cleared: keysToDelete.length,
+      keys: keysToDelete
+    };
+  } catch (err) {
+    console.error('Failed to clear learning data:', err);
+    return {
+      success: false,
+      error: err.message,
+      cleared: 0,
+      keys: []
+    };
+  }
+}

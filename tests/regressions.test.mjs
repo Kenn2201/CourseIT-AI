@@ -70,10 +70,45 @@ const { discoverDocumentationSections } = await import('../server/discover.js');
 const { readApiResponse } = await import('../src/lib/api.js');
 const { apiError, providerRetrySeconds } = await import('../server/errors.js');
 const { getGenerationJob, runGenerationJob } = await import('../server/generationJobs.js');
+const { authenticatedFetch } = await import('../src/lib/auth.js');
 const api = (route, method = 'GET', body, token) => handler({ path: '/api' + route, httpMethod: method,
   body: body ? JSON.stringify(body) : '', queryStringParameters: {}, headers: token ? { 'x-appwrite-jwt': token } : {} });
 const fixture = (id, extra = {}) => normalizeCourse({ $id: id, title: 'Course', steps: [],
   $createdAt: new Date().toISOString(), creator_id: 'author', creator_email: 'private@example.test', ...extra });
+
+test('authenticatedFetch strips stale bearer headers for guest/public requests', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalLocalStorage = globalThis.localStorage;
+  const requests = [];
+
+  globalThis.localStorage = {
+    getItem: () => null,
+    setItem() {},
+    removeItem() {}
+  };
+
+  globalThis.fetch = async (url, options = {}) => {
+    requests.push({ url, headers: options.headers || {} });
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  };
+
+  try {
+    await authenticatedFetch('/api/public', {
+      headers: {
+        Authorization: 'Bearer undefined',
+        'x-appwrite-jwt': 'undefined'
+      }
+    });
+
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].headers.authorization, undefined);
+    assert.equal(requests[0].headers['x-appwrite-jwt'], undefined);
+    assert.equal(requests[0].headers.Authorization, undefined);
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.localStorage = originalLocalStorage;
+  }
+});
 
 test('legacy account courses stay private even with course_ IDs', () => {
   const course = normalizeCourse({ $id: 'course_legacy', steps: JSON.stringify({ creator_id: 'author', items: [] }) });
